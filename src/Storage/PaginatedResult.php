@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace MichalKanak\MessageFlowVisualizerBundle\Storage;
 
-use MichalKanak\MessageFlowVisualizerBundle\Entity\FlowRun;
-
 /**
  * Paginated result for flow runs listing.
  *
@@ -14,10 +12,10 @@ use MichalKanak\MessageFlowVisualizerBundle\Entity\FlowRun;
 final class PaginatedResult
 {
     /**
-     * @param T[]  $items  The items for the current page
-     * @param int  $total  Total number of items across all pages
-     * @param int  $limit  Items per page
-     * @param int  $offset Starting offset (0-indexed)
+     * @param T[] $items  The items for the current page
+     * @param int $total  Total number of items across all pages
+     * @param int $limit  Items per page
+     * @param int $offset Starting offset (0-indexed)
      */
     public function __construct(
         public readonly array $items,

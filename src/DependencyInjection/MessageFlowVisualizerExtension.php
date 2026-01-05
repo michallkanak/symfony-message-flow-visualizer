@@ -53,7 +53,7 @@ class MessageFlowVisualizerExtension extends Extension
         $storageType = $storageConfig['type'];
 
         // Register Redis services only when Redis storage is selected
-        if ($storageType === 'redis') {
+        if ('redis' === $storageType) {
             // Register Predis client
             $redisClientDefinition = new Definition(PredisClient::class);
             $redisClientDefinition->addArgument('%message_flow_visualizer.storage.connection%');
