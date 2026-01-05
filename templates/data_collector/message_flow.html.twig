@@ -1,0 +1,530 @@
+{% extends '@WebProfiler/Profiler/layout.html.twig' %}
+
+{% block toolbar %}
+    {% set icon %}
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"></polyline>
+        </svg>
+        <span class="sf-toolbar-value">{{ collector.totalFlows }}</span>
+    {% endset %}
+
+    {% set text %}
+        <div class="sf-toolbar-info-piece">
+            <b>Message Flows</b>
+            <span>{{ collector.totalFlows }}</span>
+        </div>
+        <div class="sf-toolbar-info-piece">
+            <b>Steps</b>
+            <span>{{ collector.totalSteps }}</span>
+        </div>
+        {% if collector.failedSteps > 0 %}
+        <div class="sf-toolbar-info-piece">
+            <b>Failed</b>
+            <span class="sf-toolbar-status sf-toolbar-status-red">{{ collector.failedSteps }}</span>
+        </div>
+        {% endif %}
+        {% if collector.asyncSteps > 0 %}
+        <div class="sf-toolbar-info-piece">
+            <b>Async</b>
+            <span>{{ collector.asyncSteps }}</span>
+        </div>
+        {% endif %}
+        <div class="sf-toolbar-info-piece">
+            <b>Duration</b>
+            <span>{{ collector.totalDurationMs }} ms</span>
+        </div>
+    {% endset %}
+
+    {{ include('@WebProfiler/Profiler/toolbar_item.html.twig', { 'link': true }) }}
+{% endblock %}
+
+{% block menu %}
+    <span class="label {% if collector.failedSteps > 0 %}label-status-error{% endif %}">
+        <span class="icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"></polyline>
+            </svg>
+        </span>
+        <strong>Message Flow</strong>
+        {% if collector.failedSteps > 0 %}
+            <span class="count"><span>{{ collector.failedSteps }}</span></span>
+        {% endif %}
+    </span>
+{% endblock %}
+
+{% block panel %}
+    <style>
+        /* Use Symfony Profiler CSS variables for theme support */
+        .message-flow-container { margin: 20px 0; }
+        .flow-card { 
+            background: var(--base-1, #fff); 
+            border: 1px solid var(--base-2, #e0e0e0); 
+            border-radius: 4px; 
+            margin-bottom: 20px; 
+        }
+        .flow-header { 
+            padding: 15px; 
+            border-bottom: 1px solid var(--base-2, #e0e0e0); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        .flow-header h3 { margin: 0; font-size: 14px; color: var(--base-6, #333); }
+        .flow-status { padding: 4px 8px; border-radius: 3px; font-size: 12px; font-weight: bold; }
+        .flow-status-completed { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+        .flow-status-failed { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+        .flow-status-running { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+        .flow-body { padding: 15px; }
+        .flow-tabs { 
+            display: flex; 
+            border-bottom: 1px solid var(--base-2, #e0e0e0); 
+            margin-bottom: 15px; 
+        }
+        .flow-tab { 
+            padding: 10px 15px; 
+            cursor: pointer; 
+            border-bottom: 2px solid transparent; 
+            color: var(--base-5, #666);
+        }
+        .flow-tab:hover { color: var(--base-6, #333); }
+        .flow-tab.active { border-bottom-color: var(--color-link, #007bff); color: var(--color-link, #007bff); }
+        .flow-tab-content { display: none; }
+        .flow-tab-content.active { display: block; }
+        
+        /* Graph styles */
+        .flow-graph { 
+            width: 100%; 
+            height: 400px; 
+            border: 1px solid var(--base-2, #e0e0e0); 
+            border-radius: 4px; 
+            overflow: hidden;
+            background: var(--base-0, #f5f5f5);
+        }
+        .flow-graph svg { width: 100%; height: 100%; }
+        .node circle { stroke: var(--base-1, #fff); stroke-width: 2px; cursor: pointer; }
+        .node text { font-size: 11px; fill: var(--base-6, #333); }
+        .link { fill: none; stroke: var(--base-4, #999); stroke-opacity: 0.6; stroke-width: 2px; }
+        .link.async { stroke-dasharray: 5, 5; }
+        
+        /* Timeline styles */
+        .flow-timeline { width: 100%; min-height: 200px; position: relative; }
+        .timeline-header { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 10px; 
+            font-size: 12px; 
+            color: var(--base-4, #666); 
+        }
+        .timeline-row { display: flex; align-items: center; margin-bottom: 4px; height: 24px; }
+        .timeline-label { 
+            width: 200px; 
+            font-size: 11px; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis;
+            color: var(--base-5, #555);
+        }
+        .timeline-bar-container { 
+            flex: 1; 
+            height: 20px; 
+            background: var(--base-2, #f5f5f5); 
+            border-radius: 2px; 
+            position: relative; 
+        }
+        .timeline-bar { height: 100%; border-radius: 2px; position: absolute; min-width: 2px; }
+        .timeline-bar-queue { background: #ffc107; opacity: 0.7; }
+        .timeline-bar-processing { background: #28a745; }
+        .timeline-bar-failed { background: #dc3545; }
+        
+        /* Steps table */
+        .steps-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .steps-table th, .steps-table td { 
+            padding: 8px; 
+            text-align: left; 
+            border-bottom: 1px solid var(--base-2, #e0e0e0);
+            color: var(--base-5, #333);
+        }
+        .steps-table th { 
+            background: var(--base-1, #f8f9fa); 
+            font-weight: 600; 
+            color: var(--base-5, #555);
+        }
+        .step-status { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; }
+        .step-status-handled { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+        .step-status-failed { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+        .step-status-pending { background: rgba(108, 117, 125, 0.2); color: var(--base-4, #6c757d); }
+        .step-status-retried { background: rgba(255, 193, 7, 0.2); color: #e0a800; }
+        
+        /* Tooltip */
+        .node-tooltip { 
+            position: absolute; 
+            background: var(--base-6, rgba(0,0,0,0.85)); 
+            color: var(--base-0, #fff); 
+            padding: 10px; 
+            border-radius: 4px; 
+            font-size: 12px; 
+            pointer-events: none; 
+            z-index: 1000; 
+            max-width: 300px;
+            border: 1px solid var(--base-2, transparent);
+        }
+        .node-tooltip .tooltip-title { font-weight: bold; margin-bottom: 5px; }
+        .node-tooltip .tooltip-row { margin: 3px 0; }
+    </style>
+
+    <h2>Message Flows</h2>
+
+    {% if collector.totalFlows == 0 %}
+        <div class="empty">
+            <p>No message flows recorded during this request.</p>
+        </div>
+    {% else %}
+        <div class="metrics">
+            <div class="metric">
+                <span class="value">{{ collector.totalFlows }}</span>
+                <span class="label">Flows</span>
+            </div>
+            <div class="metric">
+                <span class="value">{{ collector.totalSteps }}</span>
+                <span class="label">Steps</span>
+            </div>
+            <div class="metric">
+                <span class="value">{{ collector.asyncSteps }}</span>
+                <span class="label">Async</span>
+            </div>
+            {% if collector.failedSteps > 0 %}
+            <div class="metric">
+                <span class="value" style="color: #dc3545;">{{ collector.failedSteps }}</span>
+                <span class="label">Failed</span>
+            </div>
+            {% endif %}
+            <div class="metric">
+                <span class="value">{{ collector.totalDurationMs }} ms</span>
+                <span class="label">Total Duration</span>
+            </div>
+        </div>
+
+        <div class="message-flow-container">
+            {% for flow in collector.flows %}
+                <div class="flow-card" data-flow-id="{{ flow.id }}">
+                    <div class="flow-header">
+                        <h3>
+                            Flow: {{ flow.id[:8] }}...
+                            <small style="color: #666; font-weight: normal;">
+                                started at {{ flow.startedAt }}
+                            </small>
+                        </h3>
+                        <div>
+                            <span class="flow-status flow-status-{{ flow.status }}">{{ flow.status }}</span>
+                            {% if flow.durationMs %}
+                                <span style="margin-left: 10px;">{{ flow.durationMs }} ms</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="flow-body">
+                        <div class="flow-tabs">
+                            <div class="flow-tab active" data-tab="graph">Graph</div>
+                            <div class="flow-tab" data-tab="timeline">Timeline</div>
+                            <div class="flow-tab" data-tab="steps">Steps</div>
+                        </div>
+
+                        <!-- Graph Tab -->
+                        <div class="flow-tab-content active" data-content="graph">
+                            <div class="flow-graph" id="graph-{{ flow.id }}"></div>
+                        </div>
+
+                        <!-- Timeline Tab -->
+                        <div class="flow-tab-content" data-content="timeline">
+                            <div class="flow-timeline" id="timeline-{{ flow.id }}">
+                                {% set totalDuration = flow.timelineData.totalDuration %}
+                                {% if totalDuration > 0 %}
+                                    <div class="timeline-header">
+                                        <span>0 ms</span>
+                                        <span>{{ totalDuration }} ms</span>
+                                    </div>
+                                    {% for span in flow.timelineData.spans %}
+                                        <div class="timeline-row">
+                                            <div class="timeline-label" title="{{ span.label }}">
+                                                {% for i in 1..(span.depth | default(0)) %}  {% endfor %}{{ span.label }}
+                                                {% if span.isAsync %}(async){% endif %}
+                                            </div>
+                                            <div class="timeline-bar-container">
+                                                {% set startPercent = (span.startOffset / totalDuration) * 100 %}
+                                                {% set queuePercent = (span.queueWait / totalDuration) * 100 %}
+                                                {% set processingPercent = (span.processing / totalDuration) * 100 %}
+                                                
+                                                {% if span.queueWait > 0 %}
+                                                    <div class="timeline-bar timeline-bar-queue" 
+                                                         style="left: {{ startPercent }}%; width: {{ queuePercent }}%;"
+                                                         title="Queue wait: {{ span.queueWait }} ms"></div>
+                                                {% endif %}
+                                                <div class="timeline-bar {% if span.status == 'failed' %}timeline-bar-failed{% else %}timeline-bar-processing{% endif %}" 
+                                                     style="left: {{ startPercent + queuePercent }}%; width: {{ processingPercent < 0.5 ? 0.5 : processingPercent }}%;"
+                                                     title="Processing: {{ span.processing }} ms"></div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <p>No timing data available</p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Steps Tab -->
+                        <div class="flow-tab-content" data-content="steps">
+                            <table class="steps-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Message</th>
+                                        <th>Handler</th>
+                                        <th>Transport</th>
+                                        <th>Status</th>
+                                        <th>Processing</th>
+                                        <th>Queue Wait</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for step in flow.steps %}
+                                        <tr>
+                                            <td>{{ loop.index }}</td>
+                                            <td title="{{ step.messageClass }}">{{ step.messageClassShort }}</td>
+                                            <td title="{{ step.handlerClass }}">{{ step.handlerClassShort | default('-') }}</td>
+                                            <td>{{ step.transport }}{% if step.isAsync %} (async){% endif %}</td>
+                                            <td>
+                                                <span class="step-status step-status-{{ step.status }}">{{ step.status }}</span>
+                                            </td>
+                                            <td>{{ step.processingDurationMs | default('-') }} ms</td>
+                                            <td>{{ step.queueWaitDurationMs | default('-') }} ms</td>
+                                            <td>{{ step.totalDurationMs | default('-') }} ms</td>
+                                        </tr>
+                                        {% if step.exceptionMessage %}
+                                            <tr>
+                                                <td colspan="8" style="background: #fff5f5; color: #dc3545;">
+                                                    <strong>{{ step.exceptionClass }}</strong>: {{ step.exceptionMessage }}
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                    // Defer rendering to after renderFlowGraph is defined
+                    (function() {
+                        var graphData = {{ flow.graphData | json_encode | raw }};
+                        var containerId = 'graph-{{ flow.id }}';
+                        
+                        // Wait for DOM and function to be ready
+                        setTimeout(function initGraph() {
+                            var container = document.getElementById(containerId);
+                            if (container && typeof renderFlowGraph === 'function' && graphData.nodes.length > 0) {
+                                renderFlowGraph(container, graphData);
+                            } else if (container && typeof renderFlowGraph !== 'function') {
+                                // Retry if function not yet available
+                                setTimeout(initGraph, 50);
+                            }
+                        }, 0);
+                    })();
+                </script>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.flow-tab').forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                var card = this.closest('.flow-card');
+                var tabName = this.dataset.tab;
+                
+                card.querySelectorAll('.flow-tab').forEach(function(t) { t.classList.remove('active'); });
+                card.querySelectorAll('.flow-tab-content').forEach(function(c) { c.classList.remove('active'); });
+                
+                this.classList.add('active');
+                card.querySelector('[data-content="' + tabName + '"]').classList.add('active');
+            });
+        });
+
+        // SVG Graph Rendering
+        function renderFlowGraph(container, data) {
+            var width = container.clientWidth;
+            var height = container.clientHeight || 400;
+            
+            // Create SVG
+            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+            container.appendChild(svg);
+            
+            var nodes = data.nodes;
+            var links = data.links;
+            
+            // Build parent-child relationships
+            var children = {};
+            var parents = {};
+            nodes.forEach(function(node, i) {
+                children[i] = [];
+                parents[i] = null;
+            });
+            links.forEach(function(link) {
+                children[link.source].push(link.target);
+                parents[link.target] = link.source;
+            });
+            
+            // Calculate depth using BFS from root nodes
+            var depths = {};
+            var queue = [];
+            nodes.forEach(function(node, i) {
+                if (parents[i] === null) {
+                    depths[i] = 0;
+                    queue.push(i);
+                }
+            });
+            
+            while (queue.length > 0) {
+                var current = queue.shift();
+                children[current].forEach(function(childIdx) {
+                    depths[childIdx] = depths[current] + 1;
+                    queue.push(childIdx);
+                });
+            }
+            
+            // Assign depths to nodes
+            nodes.forEach(function(node, i) {
+                node.depth = depths[i] !== undefined ? depths[i] : 0;
+            });
+            
+            // Group nodes by depth
+            var nodesAtDepth = {};
+            var maxDepth = 0;
+            nodes.forEach(function(node, i) {
+                if (!nodesAtDepth[node.depth]) nodesAtDepth[node.depth] = [];
+                nodesAtDepth[node.depth].push(i);
+                maxDepth = Math.max(maxDepth, node.depth);
+            });
+            
+            // Calculate layout - adjust height based on content
+            var nodeSpacingY = 80;
+            var minHeight = (maxDepth + 1) * nodeSpacingY + 80;
+            if (minHeight > height) {
+                height = minHeight;
+                svg.setAttribute('height', height);
+                container.style.height = height + 'px';
+            }
+            
+            // Position nodes
+            nodes.forEach(function(node, i) {
+                var atDepth = nodesAtDepth[node.depth];
+                var idx = atDepth.indexOf(i);
+                var nodeSpacingX = Math.max(120, width / (atDepth.length + 1));
+                node.x = nodeSpacingX * (idx + 1);
+                node.y = 50 + (node.depth * nodeSpacingY);
+            });
+            
+            // Create link elements
+            var linkGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            svg.appendChild(linkGroup);
+            
+            links.forEach(function(link) {
+                var source = nodes[link.source];
+                var target = nodes[link.target];
+                var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                var midY = (source.y + target.y) / 2;
+                var d = 'M' + source.x + ',' + source.y + ' Q' + source.x + ',' + midY + ' ' + target.x + ',' + target.y;
+                path.setAttribute('d', d);
+                path.setAttribute('class', 'link' + (link.isAsync ? ' async' : ''));
+                path.setAttribute('stroke', '#999');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('fill', 'none');
+                if (link.isAsync) path.setAttribute('stroke-dasharray', '5,5');
+                linkGroup.appendChild(path);
+            });
+            
+            // Create node elements
+            var nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            svg.appendChild(nodeGroup);
+            
+            nodes.forEach(function(node) {
+                var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('class', 'node');
+                g.setAttribute('transform', 'translate(' + node.x + ',' + node.y + ')');
+                
+                var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('r', 20);
+                circle.setAttribute('fill', node.color);
+                circle.setAttribute('stroke', '#fff');
+                circle.setAttribute('stroke-width', '2');
+                g.appendChild(circle);
+                
+                // Add "A" indicator for async messages
+                if (node.isAsync) {
+                    var asyncLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    asyncLabel.setAttribute('dy', 5);
+                    asyncLabel.setAttribute('text-anchor', 'middle');
+                    asyncLabel.setAttribute('font-size', '12');
+                    asyncLabel.setAttribute('font-weight', 'bold');
+                    asyncLabel.setAttribute('fill', '#fff');
+                    asyncLabel.textContent = 'A';
+                    g.appendChild(asyncLabel);
+                }
+                
+                var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('dy', 35);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('font-size', '10');
+                text.textContent = node.label;  // Full label, no truncation
+                g.appendChild(text);
+                
+                // Tooltip on hover
+                g.addEventListener('mouseenter', function(e) {
+                    showTooltip(e, node);
+                });
+                g.addEventListener('mouseleave', hideTooltip);
+                
+                nodeGroup.appendChild(g);
+            });
+        }
+        
+        var tooltip;
+        function showTooltip(e, node) {
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.className = 'node-tooltip';
+                document.body.appendChild(tooltip);
+            }
+            
+            var html = '<div class="tooltip-title">' + node.label + '</div>';
+            html += '<div class="tooltip-row">Full: ' + node.fullName + '</div>';
+            if (node.handler) {
+                html += '<div class="tooltip-row">Handler: ' + node.handler + '</div>';
+            }
+            html += '<div class="tooltip-row">Transport: ' + node.transport + '</div>';
+            html += '<div class="tooltip-row">Status: ' + node.status + '</div>';
+            if (node.processingMs) {
+                html += '<div class="tooltip-row">Processing: ' + node.processingMs + ' ms</div>';
+            }
+            if (node.queueWaitMs) {
+                html += '<div class="tooltip-row">Queue Wait: ' + node.queueWaitMs + ' ms</div>';
+            }
+            if (node.exception) {
+                html += '<div class="tooltip-row" style="color:#f88;">Error: ' + node.exception + '</div>';
+            }
+            
+            tooltip.innerHTML = html;
+            tooltip.style.display = 'block';
+            tooltip.style.left = (e.pageX + 10) + 'px';
+            tooltip.style.top = (e.pageY + 10) + 'px';
+        }
+        
+        function hideTooltip() {
+            if (tooltip) {
+                tooltip.style.display = 'none';
+            }
+        }
+    </script>
+{% endblock %}

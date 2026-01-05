@@ -1,0 +1,356 @@
+{% extends '@MessageFlowVisualizer/dashboard/base.html.twig' %}
+
+{% block title %}Flow Details - {{ flow.id[:8] }}{% endblock %}
+
+{% block extra_styles %}
+    /* Flow specific styles */
+    .flow-info { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .flow-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; }
+    .info-item { }
+    .info-label { font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; }
+    .info-value { font-size: 16px; font-weight: 600; color: #1a1a2e; }
+    
+    /* Graph */
+    .graph-container { width: 100%; height: 500px; border: 1px solid #e0e0e0; border-radius: 4px; background: #fafafa; }
+    .graph-container svg { width: 100%; height: 100%; }
+    .node circle { stroke: #fff; stroke-width: 2px; cursor: pointer; }
+    .node text { font-size: 11px; fill: #333; }
+    .link { fill: none; stroke: #999; stroke-opacity: 0.6; stroke-width: 2px; }
+    .link.async { stroke-dasharray: 5, 5; }
+    
+    /* Timeline */
+    .timeline { padding: 10px 20px; overflow: hidden; }
+    .timeline-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px; color: #666; margin-left: 210px; }
+    .timeline-row { display: flex; align-items: center; margin-bottom: 8px; }
+    .timeline-label { width: 200px; min-width: 200px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; font-weight: 500; }
+    .timeline-bar-container { flex: 1; min-width: 0; height: 28px; background: #f0f0f0; border-radius: 4px; position: relative; overflow: hidden; }
+    .timeline-bar { height: 100%; border-radius: 4px; position: absolute; min-width: 3px; max-width: 100%; }
+    .timeline-bar-queue { background: #ffc107; }
+    .timeline-bar-processing { background: #28a745; }
+    .timeline-bar-failed { background: #dc3545; }
+    
+    /* Steps table */
+    .steps-table { width: 100%; border-collapse: collapse; }
+    .steps-table th, .steps-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+    .steps-table th { background: #f8f9fa; font-weight: 600; text-transform: uppercase; font-size: 11px; color: #666; }
+    .step-status { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .step-status-handled { background: #d4edda; color: #155724; }
+    .step-status-failed { background: #f8d7da; color: #721c24; }
+    .step-status-pending { background: #e2e3e5; color: #383d41; }
+    .step-status-retried { background: #fff3cd; color: #856404; }
+    
+    .error-row { background: #fff5f5; }
+    .error-message { color: #dc3545; font-size: 12px; }
+    
+    .tooltip { position: absolute; background: rgba(0,0,0,0.9); color: #fff; padding: 10px 14px; border-radius: 6px; font-size: 12px; pointer-events: none; z-index: 1000; max-width: 300px; line-height: 1.5; }
+    
+    .back-link { display: inline-flex; align-items: center; gap: 6px; color: #666; text-decoration: none; margin-bottom: 20px; font-weight: 500; }
+    .back-link:hover { color: #007bff; }
+{% endblock %}
+
+{% block content %}
+    <a href="{{ path('message_flow_index') }}" class="back-link">← Back to Flows</a>
+    
+    <h2 style="margin-bottom: 20px; color: #1a1a2e;">Flow: <span style="font-family: monospace;">{{ flow.id[:8] }}...</span></h2>
+
+    <div class="flow-info">
+        <div class="flow-info-grid">
+            <div class="info-item">
+                <div class="info-label">Status</div>
+                <div class="info-value">
+                    <span class="badge badge-{% if flow.status == 'completed' %}success{% elseif flow.status == 'failed' %}danger{% else %}warning{% endif %}">
+                        {{ flow.status }}
+                    </span>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Trace ID</div>
+                <div class="info-value" style="font-family: monospace; font-size: 13px;">{{ flow.traceId[:16] }}...</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Started At</div>
+                <div class="info-value" style="font-size: 14px;">{{ flow.startedAt | date('Y-m-d H:i:s') }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Duration</div>
+                <div class="info-value">{{ flow.durationMs ? flow.durationMs ~ ' ms' : '-' }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Steps</div>
+                <div class="info-value">{{ flow.steps | length }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Initiator</div>
+                <div class="info-value" style="font-size: 13px;">{{ flow.initiator | default('-') }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="graph">Graph</div>
+        <div class="tab" data-tab="timeline">Timeline</div>
+        <div class="tab" data-tab="steps">Steps</div>
+    </div>
+
+    <!-- Graph Tab -->
+    <div class="tab-content active card" data-content="graph">
+        <div class="graph-container" id="flow-graph"></div>
+    </div>
+
+    <!-- Timeline Tab -->
+    <div class="tab-content card" data-content="timeline">
+        <div class="timeline">
+            {% set totalDuration = timelineData.totalDuration %}
+            {% if totalDuration > 0 %}
+                <div class="timeline-header">
+                    <span>0 ms</span>
+                    <span>{{ totalDuration }} ms</span>
+                </div>
+                {% for span in timelineData.spans %}
+                    <div class="timeline-row">
+                        <div class="timeline-label" title="{{ span.fullLabel }}" style="padding-left: {{ span.depth * 20 }}px;">
+                            {{ span.label }}
+                            {% if span.isAsync %}<small style="color: #666;">(async)</small>{% endif %}
+                        </div>
+                        <div class="timeline-bar-container">
+                            {% set startPercent = (span.startOffset / totalDuration) * 100 %}
+                            {% set queuePercent = (span.queueWaitDuration / totalDuration) * 100 %}
+                            {% set processingPercent = (span.processingDuration / totalDuration) * 100 %}
+                            
+                            {% if span.queueWaitDuration > 0 %}
+                                <div class="timeline-bar timeline-bar-queue" 
+                                     style="left: {{ startPercent }}%; width: {{ queuePercent }}%;"
+                                     title="Queue: {{ span.queueWaitDuration }} ms"></div>
+                            {% endif %}
+                            <div class="timeline-bar {% if span.status == 'failed' %}timeline-bar-failed{% else %}timeline-bar-processing{% endif %}" 
+                                 style="left: {{ startPercent + queuePercent }}%; width: {{ processingPercent < 0.5 ? 0.5 : processingPercent }}%;"
+                                 title="Processing: {{ span.processingDuration }} ms"></div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: #666; text-align: center; padding: 20px;">No timing data available</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Steps Tab -->
+    <div class="tab-content card" data-content="steps">
+        <table class="steps-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Message</th>
+                    <th>Handler</th>
+                    <th>Transport</th>
+                    <th>Status</th>
+                    <th>Processing</th>
+                    <th>Queue Wait</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for step in flow.steps %}
+                    <tr class="{% if step.status == 'failed' %}error-row{% endif %}">
+                        <td>{{ loop.index }}</td>
+                        <td title="{{ step.messageClass }}">
+                            {{ step.messageClass | split('\\') | last }}
+                        </td>
+                        <td title="{{ step.handlerClass }}">
+                            {{ step.handlerClass ? step.handlerClass | split('\\') | last : '-' }}
+                        </td>
+                        <td>{{ step.transport }}{% if step.isAsync %} <small>(async)</small>{% endif %}</td>
+                        <td>
+                            <span class="step-status step-status-{{ step.status }}">{{ step.status }}</span>
+                        </td>
+                        <td>{{ step.processingDurationMs ?? '-' }} ms</td>
+                        <td>{{ step.queueWaitDurationMs ?? '-' }} ms</td>
+                        <td>{{ step.totalDurationMs ?? '-' }} ms</td>
+                    </tr>
+                    {% if step.exceptionMessage %}
+                        <tr class="error-row">
+                            <td colspan="8" class="error-message">
+                                <strong>{{ step.exceptionClass }}</strong>: {{ step.exceptionMessage }}
+                            </td>
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            var tabName = this.dataset.tab;
+            
+            document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+            
+            this.classList.add('active');
+            document.querySelector('[data-content="' + tabName + '"]').classList.add('active');
+        });
+    });
+
+    // Render graph
+    var graphData = {{ graphData | json_encode | raw }};
+    var container = document.getElementById('flow-graph');
+    
+    if (container && graphData.nodes.length > 0) {
+        var width = container.clientWidth;
+        var height = container.clientHeight || 500;
+        
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', width);
+        svg.setAttribute('height', height);
+        container.appendChild(svg);
+        
+        var nodes = graphData.nodes;
+        var links = graphData.links;
+        
+        // Build parent-child relationships
+        var children = {};
+        var parents = {};
+        nodes.forEach(function(node, i) {
+            children[i] = [];
+            parents[i] = null;
+        });
+        links.forEach(function(link) {
+            children[link.source].push(link.target);
+            parents[link.target] = link.source;
+        });
+        
+        // Calculate depth using BFS from root nodes
+        var depths = {};
+        var queue = [];
+        nodes.forEach(function(node, i) {
+            if (parents[i] === null) {
+                depths[i] = 0;
+                queue.push(i);
+            }
+        });
+        
+        while (queue.length > 0) {
+            var current = queue.shift();
+            children[current].forEach(function(childIdx) {
+                depths[childIdx] = depths[current] + 1;
+                queue.push(childIdx);
+            });
+        }
+        
+        // Assign depths to nodes
+        nodes.forEach(function(node, i) {
+            node.depth = depths[i] !== undefined ? depths[i] : 0;
+        });
+        
+        // Group nodes by depth
+        var nodesAtDepth = {};
+        var maxDepth = 0;
+        nodes.forEach(function(node, i) {
+            if (!nodesAtDepth[node.depth]) nodesAtDepth[node.depth] = [];
+            nodesAtDepth[node.depth].push(i);
+            maxDepth = Math.max(maxDepth, node.depth);
+        });
+        
+        // Calculate layout - adjust height based on content
+        var nodeSpacingY = 100; // Vertical spacing between levels
+        var minHeight = (maxDepth + 1) * nodeSpacingY + 100;
+        if (minHeight > height) {
+            height = minHeight;
+            svg.setAttribute('height', height);
+            container.style.height = height + 'px';
+        }
+        
+        // Position nodes
+        nodes.forEach(function(node, i) {
+            var atDepth = nodesAtDepth[node.depth];
+            var idx = atDepth.indexOf(i);
+            var nodeSpacingX = Math.max(150, width / (atDepth.length + 1));
+            node.x = nodeSpacingX * (idx + 1);
+            node.y = 60 + (node.depth * nodeSpacingY);
+        });
+        
+        // Draw links
+        var linkGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        svg.appendChild(linkGroup);
+        
+        links.forEach(function(link) {
+            var source = nodes[link.source];
+            var target = nodes[link.target];
+            var line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            var midY = (source.y + target.y) / 2;
+            var d = 'M' + source.x + ',' + source.y + ' Q' + source.x + ',' + midY + ' ' + target.x + ',' + target.y;
+            line.setAttribute('d', d);
+            line.setAttribute('class', 'link' + (link.isAsync ? ' async' : ''));
+            line.setAttribute('stroke', '#999');
+            line.setAttribute('stroke-width', '2');
+            line.setAttribute('fill', 'none');
+            if (link.isAsync) line.setAttribute('stroke-dasharray', '5,5');
+            linkGroup.appendChild(line);
+        });
+        
+        // Draw nodes
+        var nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        svg.appendChild(nodeGroup);
+        
+        nodes.forEach(function(node) {
+            var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('class', 'node');
+            g.setAttribute('transform', 'translate(' + node.x + ',' + node.y + ')');
+            
+            var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('r', 25);
+            circle.setAttribute('fill', node.color);
+            g.appendChild(circle);
+            
+            // Add "A" indicator for async messages
+            if (node.isAsync) {
+                var asyncLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                asyncLabel.setAttribute('dy', 5);
+                asyncLabel.setAttribute('text-anchor', 'middle');
+                asyncLabel.setAttribute('font-size', '14');
+                asyncLabel.setAttribute('font-weight', 'bold');
+                asyncLabel.setAttribute('fill', '#fff');
+                asyncLabel.textContent = 'A';
+                g.appendChild(asyncLabel);
+            }
+            
+            var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('dy', 40);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('font-size', '11');
+            text.setAttribute('fill', '#333');
+            text.textContent = node.label;
+            g.appendChild(text);
+            
+            g.addEventListener('mouseenter', function(e) {
+                var tooltip = document.createElement('div');
+                tooltip.className = 'tooltip';
+                tooltip.innerHTML = '<strong>' + node.label + '</strong><br>' +
+                    'Handler: ' + (node.handler || '-') + '<br>' +
+                    'Transport: ' + node.transport + '<br>' +
+                    'Status: ' + node.status + '<br>' +
+                    (node.processingMs ? 'Processing: ' + node.processingMs + ' ms<br>' : '') +
+                    (node.queueWaitMs ? 'Queue Wait: ' + node.queueWaitMs + ' ms<br>' : '') +
+                    (node.exception ? '<span style="color:#f88">Error: ' + node.exception + '</span>' : '');
+                tooltip.style.left = (e.pageX + 10) + 'px';
+                tooltip.style.top = (e.pageY + 10) + 'px';
+                document.body.appendChild(tooltip);
+                g._tooltip = tooltip;
+            });
+            
+            g.addEventListener('mouseleave', function() {
+                if (g._tooltip) {
+                    g._tooltip.remove();
+                    g._tooltip = null;
+                }
+            });
+            
+            nodeGroup.appendChild(g);
+        });
+    }
+</script>
+{% endblock %}

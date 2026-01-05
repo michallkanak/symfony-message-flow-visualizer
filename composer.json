@@ -1,0 +1,65 @@
+{
+    "name": "michallkanak/symfony-message-flow-visualizer",
+    "description": "Visual tracing and debugging tool for Symfony Messenger - track message flows, visualize DAG graphs, and analyze async processing",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "keywords": [
+        "symfony",
+        "messenger",
+        "debugging",
+        "tracing",
+        "visualization",
+        "profiler",
+        "message-flow",
+        "async"
+    ],
+    "authors": [
+        {
+            "name": "Michał Kanak",
+            "email": "kanakmichal@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.2",
+        "doctrine/orm": "^2.14|^3.0",
+        "symfony/framework-bundle": "^6.4|^7.0|^8.0",
+        "symfony/messenger": "^6.4|^7.0|^8.0",
+        "symfony/twig-bundle": "^6.4|^7.0|^8.0",
+        "symfony/uid": "^6.4|^7.0|^8.0"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.40",
+        "phpstan/phpstan": "^1.10",
+        "phpunit/phpunit": "^10.0",
+        "predis/predis": "^2.0",
+        "symfony/var-dumper": "^6.4|^7.0|^8.0",
+        "symfony/web-profiler-bundle": "^6.4|^7.0|^8.0"
+    },
+    "suggest": {
+        "predis/predis": "Required for RedisStorage implementation",
+        "symfony/web-profiler-bundle": "Required for Profiler integration"
+    },
+    "autoload": {
+        "psr-4": {
+            "MichalKanak\\MessageFlowVisualizerBundle\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MichalKanak\\MessageFlowVisualizerBundle\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "1.0-dev"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

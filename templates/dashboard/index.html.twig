@@ -1,0 +1,124 @@
+{% extends '@MessageFlowVisualizer/dashboard/base.html.twig' %}
+
+{% block title %}Message Flow Dashboard{% endblock %}
+
+{% block content %}
+    <h2 style="margin-bottom: 20px; color: #1a1a2e;">Message Flows</h2>
+    
+    <!-- Filters -->
+    <div class="filters-card">
+        <form method="get">
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label>Search</label>
+                    <input type="text" name="search" placeholder="Message class, initiator..." value="{{ search ?? '' }}">
+                </div>
+                <div class="filter-group">
+                    <label>Status</label>
+                    <select name="status">
+                        <option value="">All statuses</option>
+                        <option value="running" {% if status == 'running' %}selected{% endif %}>Running</option>
+                        <option value="completed" {% if status == 'completed' %}selected{% endif %}>Completed</option>
+                        <option value="failed" {% if status == 'failed' %}selected{% endif %}>Failed</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Show</label>
+                    <select name="limit">
+                        <option value="20" {% if limit == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if limit == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if limit == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+                <div class="checkbox-group" style="align-self: center; margin-top: 20px;">
+                    <input type="checkbox" name="slow_only" id="slow_only" value="1" {% if slow_only %}checked{% endif %}>
+                    <label for="slow_only">Slow only</label>
+                </div>
+                <div class="filter-group flex-grow"></div>
+                <div class="filter-group" style="align-self: center;">
+                    <div style="display: flex; gap: 8px;">
+                        <button type="submit" class="btn btn-primary">Filter</button>
+                        <a href="{{ path('message_flow_index') }}" class="btn btn-outline">Clear</a>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    {% if flows | length == 0 %}
+        <div class="empty-state">
+            <p style="font-size: 18px;">No message flows found.</p>
+            <p style="font-size: 14px; color: #999;">Try adjusting your filters or trigger some message flows.</p>
+        </div>
+    {% else %}
+        <!-- Stats Summary -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-value">{{ flows | length }}</span>
+                <span class="stat-label">flows shown</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" style="color: #28a745;">{{ flows | filter(f => f.status == 'completed') | length }}</span>
+                <span class="stat-label">completed</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" style="color: #dc3545;">{{ flows | filter(f => f.status == 'failed') | length }}</span>
+                <span class="stat-label">failed</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" style="color: #e67e00;">{{ flows | filter(f => f.durationMs is defined and f.durationMs > 500) | length }}</span>
+                <span class="stat-label">slow (&gt;500ms)</span>
+            </div>
+        </div>
+    
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Main Event</th>
+                    <th>Status</th>
+                    <th>Started At</th>
+                    <th>Duration</th>
+                    <th>Steps</th>
+                    <th>Initiator</th>
+                    <th style="text-align: center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for flow in flows %}
+                    {% set is_slow = flow.durationMs is defined and flow.durationMs > 500 %}
+                    {% set is_critical = flow.durationMs is defined and flow.durationMs > 2000 %}
+                    {% set first_step = flow.steps | first %}
+                    {% set main_event = first_step ? (first_step.messageClass | split('\\') | last) : '-' %}
+                    <tr>
+                        <td>
+                            <a href="{{ path('message_flow_show', {id: flow.id}) }}" style="font-family: monospace;">
+                                {{ flow.id[:8] }}...
+                            </a>
+                        </td>
+                        <td style="font-weight: 500; color: #1a1a2e;">{{ main_event }}</td>
+                        <td>
+                            <span class="badge badge-{% if flow.status == 'completed' %}success{% elseif flow.status == 'failed' %}danger{% else %}warning{% endif %}">
+                                {{ flow.status }}
+                            </span>
+                            {% if is_slow %}
+                                <span class="slow-badge {{ is_critical ? 'critical' : '' }}">⚠️ slow</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ flow.startedAt | date('Y-m-d H:i:s') }}</td>
+                        <td class="{{ is_critical ? 'duration-slow' : (is_slow ? 'duration-warning' : '') }}">
+                            {{ flow.durationMs ? flow.durationMs ~ ' ms' : '-' }}
+                        </td>
+                        <td>{{ flow.steps | length }}</td>
+                        <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {{ flow.initiator | default('-') }}
+                        </td>
+                        <td style="text-align: center;">
+                            <a href="{{ path('message_flow_show', {id: flow.id}) }}" class="btn btn-primary btn-sm">View</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+{% endblock %}

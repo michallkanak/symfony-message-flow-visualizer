@@ -1,0 +1,95 @@
+{% extends '@MessageFlowVisualizer/dashboard/base.html.twig' %}
+
+{% block title %}Message Flow Statistics{% endblock %}
+
+{% block extra_styles %}
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card { background: #fff; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .stat-card-value { font-size: 36px; font-weight: 700; color: #1a1a2e; }
+    .stat-card-label { font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+    .stat-card-success .stat-card-value { color: #28a745; }
+    .stat-card-danger .stat-card-value { color: #dc3545; }
+    
+    .section { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .section h3 { font-size: 16px; margin-bottom: 15px; color: #1a1a2e; }
+    
+    .message-list { list-style: none; }
+    .message-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
+    .message-item:last-child { border-bottom: none; }
+    .message-name { font-weight: 500; color: #333; }
+    .message-count { background: #e9ecef; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    
+    .progress-bar { height: 6px; background: #e9ecef; border-radius: 3px; overflow: hidden; margin-top: 8px; }
+    .progress-fill { height: 100%; border-radius: 3px; }
+{% endblock %}
+
+{% block content %}
+    <h2 style="margin-bottom: 20px; color: #1a1a2e;">📈 Statistics</h2>
+
+    <!-- Date filters -->
+    <div class="filters-card">
+        <form method="get">
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label>From</label>
+                    <input type="text" name="from" value="{{ from | date('Y-m-d H:i') }}" placeholder="-1 day">
+                </div>
+                <div class="filter-group">
+                    <label>To</label>
+                    <input type="text" name="to" value="{{ to | date('Y-m-d H:i') }}" placeholder="now">
+                </div>
+                <div class="filter-group">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Stats cards -->
+    <div class="cards">
+        <div class="stat-card">
+            <div class="stat-card-value">{{ stats.totalFlows }}</div>
+            <div class="stat-card-label">Total Flows</div>
+        </div>
+        <div class="stat-card stat-card-success">
+            <div class="stat-card-value">{{ stats.completedFlows }}</div>
+            <div class="stat-card-label">Completed</div>
+            {% if stats.totalFlows > 0 %}
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ (stats.completedFlows / stats.totalFlows) * 100 }}%; background: #28a745;"></div>
+                </div>
+            {% endif %}
+        </div>
+        <div class="stat-card stat-card-danger">
+            <div class="stat-card-value">{{ stats.failedFlows }}</div>
+            <div class="stat-card-label">Failed</div>
+            {% if stats.totalFlows > 0 %}
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ (stats.failedFlows / stats.totalFlows) * 100 }}%; background: #dc3545;"></div>
+                </div>
+            {% endif %}
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-value">{{ stats.avgDurationMs | number_format(0) }} <small style="font-size: 16px; font-weight: 400;">ms</small></div>
+            <div class="stat-card-label">Avg Duration</div>
+        </div>
+    </div>
+
+    {% if stats.messageClasses | length > 0 %}
+        <div class="section">
+            <h3>Top Message Classes</h3>
+            <ul class="message-list">
+                {% set maxCount = stats.messageClasses | first %}
+                {% for class, count in stats.messageClasses | slice(0, 15) %}
+                    <li class="message-item">
+                        <span class="message-name" title="{{ class }}">
+                            {{ class | split('\\') | last }}
+                        </span>
+                        <span class="message-count">{{ count }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+{% endblock %}

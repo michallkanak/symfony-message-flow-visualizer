@@ -1,0 +1,79 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Storage implementations
+    MichalKanak\MessageFlowVisualizerBundle\Storage\FilesystemStorage:
+        arguments:
+            $storagePath: '%message_flow_visualizer.storage.path%'
+
+    MichalKanak\MessageFlowVisualizerBundle\Storage\InMemoryStorage: ~
+
+    MichalKanak\MessageFlowVisualizerBundle\Storage\DoctrineStorage: ~
+
+    # Note: RedisStorage and Predis\Client are registered conditionally
+    # in MessageFlowVisualizerExtension only when storage.type is 'redis' (requires predis/predis)
+
+    # Trace services
+    MichalKanak\MessageFlowVisualizerBundle\Trace\TraceIdGenerator: ~
+
+    MichalKanak\MessageFlowVisualizerBundle\Trace\TraceContext: ~
+
+    MichalKanak\MessageFlowVisualizerBundle\Trace\SamplingDecider:
+        arguments:
+            $enabled: '%message_flow_visualizer.sampling.enabled%'
+            $rate: '%message_flow_visualizer.sampling.rate%'
+
+    # Middleware
+    MichalKanak\MessageFlowVisualizerBundle\Middleware\TraceMiddleware:
+        arguments:
+            $enabled: '%message_flow_visualizer.enabled%'
+            $dataCollector: '@MichalKanak\MessageFlowVisualizerBundle\DataCollector\MessageFlowDataCollector'
+        tags:
+            - { name: messenger.middleware }
+
+    # Event Subscribers
+    MichalKanak\MessageFlowVisualizerBundle\EventSubscriber\MessageEventSubscriber:
+        arguments:
+            $enabled: '%message_flow_visualizer.enabled%'
+        tags:
+            - { name: kernel.event_subscriber }
+
+    # Visualization
+    MichalKanak\MessageFlowVisualizerBundle\Visualization\FlowGraphBuilder: ~
+
+    MichalKanak\MessageFlowVisualizerBundle\Visualization\TimelineBuilder: ~
+
+    # Data Collector (only if web profiler is available)
+    MichalKanak\MessageFlowVisualizerBundle\DataCollector\MessageFlowDataCollector:
+        tags:
+            - { name: data_collector, template: '@MessageFlowVisualizer/data_collector/message_flow.html.twig', id: 'message_flow' }
+
+    # Commands
+    MichalKanak\MessageFlowVisualizerBundle\Command\FlowShowCommand:
+        tags:
+            - { name: console.command }
+
+    MichalKanak\MessageFlowVisualizerBundle\Command\FlowListCommand:
+        arguments:
+            $slowThresholdMs: '%message_flow_visualizer.slow_threshold_ms%'
+        tags:
+            - { name: console.command }
+
+    MichalKanak\MessageFlowVisualizerBundle\Command\FlowStatsCommand:
+        tags:
+            - { name: console.command }
+
+    MichalKanak\MessageFlowVisualizerBundle\Command\FlowCleanupCommand:
+        arguments:
+            $retentionDays: '%message_flow_visualizer.cleanup.retention_days%'
+        tags:
+            - { name: console.command }
+
+    # Dashboard Controller (optional - user must register routes manually)
+    MichalKanak\MessageFlowVisualizerBundle\Controller\DashboardController:
+        arguments:
+            $slowThresholdMs: '%message_flow_visualizer.slow_threshold_ms%'
+        tags:
+            - { name: controller.service_arguments }

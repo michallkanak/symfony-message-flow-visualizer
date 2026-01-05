@@ -1,0 +1,18 @@
+/vendor/
+/var/
+/.php-cs-fixer.cache
+/phpstan.neon.dist
+/docker/
+/docker-compose.yml
+
+# IDE
+/.idea/
+
+# Cache
+/.phpunit.result.cache
+
+# Lock file (library - users should have their own)
+/composer.lock
+
+# VS Code workspace
+*.code-workspace
