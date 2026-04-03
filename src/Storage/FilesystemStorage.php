@@ -143,7 +143,7 @@ class FilesystemStorage implements StorageInterface
         if ($existingPriority > $newPriority) {
             $result = $existing;
             // Add any new fields from $new that are set and missing in $existing
-            foreach (['handlerClass', 'handledAt', 'receivedAt', 'processingDurationMs', 'queueWaitMs', 'totalDurationMs'] as $field) {
+            foreach (['handlerClass', 'handledAt', 'receivedAt', 'processingDurationMs', 'queueWaitDurationMs', 'totalDurationMs'] as $field) {
                 if (empty($result[$field]) && !empty($new[$field])) {
                     $result[$field] = $new[$field];
                 }
@@ -151,7 +151,7 @@ class FilesystemStorage implements StorageInterface
         } else {
             $result = $new;
             // Add any fields from $existing that are set and missing in $new
-            foreach (['handlerClass', 'handledAt', 'receivedAt', 'processingDurationMs', 'queueWaitMs', 'totalDurationMs'] as $field) {
+            foreach (['handlerClass', 'handledAt', 'receivedAt', 'processingDurationMs', 'queueWaitDurationMs', 'totalDurationMs'] as $field) {
                 if (empty($result[$field]) && !empty($existing[$field])) {
                     $result[$field] = $existing[$field];
                 }
