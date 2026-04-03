@@ -216,11 +216,35 @@ class DoctrineStorage implements StorageInterface
             $messageClasses[$row['messageClass']] = (int) $row['count'];
         }
 
+        // Compute avg duration from timestamps (portable across databases,
+        // DQL has no native TIMESTAMPDIFF equivalent)
+        $avgQb = $this->entityManager
+            ->getRepository(FlowRun::class)
+            ->createQueryBuilder('fr')
+            ->select('fr.startedAt, fr.finishedAt')
+            ->where('fr.startedAt >= :from')
+            ->andWhere('fr.startedAt <= :to')
+            ->andWhere('fr.finishedAt IS NOT NULL')
+            ->setParameter('from', $from)
+            ->setParameter('to', $to);
+
+        $durations = [];
+        foreach ($avgQb->getQuery()->getResult() as $row) {
+            $start = $row['startedAt'];
+            $end = $row['finishedAt'];
+            $durations[] = ($end->getTimestamp() - $start->getTimestamp()) * 1000
+                + ((int) $end->format('u') - (int) $start->format('u')) / 1000;
+        }
+
+        $avgDurationMs = \count($durations) > 0
+            ? array_sum($durations) / \count($durations)
+            : 0.0;
+
         return [
             'totalFlows' => (int) ($result['totalFlows'] ?? 0),
             'completedFlows' => (int) ($result['completedFlows'] ?? 0),
             'failedFlows' => (int) ($result['failedFlows'] ?? 0),
-            'avgDurationMs' => 0.0, // Would require additional query
+            'avgDurationMs' => $avgDurationMs,
             'messageClasses' => $messageClasses,
         ];
     }
