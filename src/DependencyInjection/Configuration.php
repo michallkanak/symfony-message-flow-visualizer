@@ -19,7 +19,7 @@ class Configuration implements ConfigurationInterface
         $treeBuilder->getRootNode()
             ->children()
                 ->booleanNode('enabled')
-                    ->defaultValue('%env(bool:MESSAGE_FLOW_ENABLED)%')
+                    ->defaultTrue()
                     ->info('Enable or disable message flow tracking')
                 ->end()
                 ->arrayNode('storage')
