@@ -151,14 +151,14 @@ class RedisStorage implements StorageInterface
 
         if ($existingPriority > $newPriority) {
             $result = $existing;
-            foreach (['handlerClass', 'handledAt', 'receivedAt', 'processingDurationMs', 'queueWaitMs', 'totalDurationMs'] as $field) {
+            foreach (['handlerClass', 'handledAt', 'receivedAt', 'processingDurationMs', 'queueWaitDurationMs', 'totalDurationMs'] as $field) {
                 if (empty($result[$field]) && !empty($new[$field])) {
                     $result[$field] = $new[$field];
                 }
             }
         } else {
             $result = $new;
-            foreach (['handlerClass', 'handledAt', 'receivedAt', 'processingDurationMs', 'queueWaitMs', 'totalDurationMs'] as $field) {
+            foreach (['handlerClass', 'handledAt', 'receivedAt', 'processingDurationMs', 'queueWaitDurationMs', 'totalDurationMs'] as $field) {
                 if (empty($result[$field]) && !empty($existing[$field])) {
                     $result[$field] = $existing[$field];
                 }
