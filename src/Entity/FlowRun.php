@@ -196,7 +196,7 @@ class FlowRun
             'initiator' => $this->initiator,
             'metadata' => $this->metadata,
             'durationMs' => $this->getDurationMs(),
-            'steps' => array_map(fn (FlowStep $step) => $step->toArray(), $this->getSteps()),
+            'steps' => array_map(static fn (FlowStep $step) => $step->toArray(), $this->getSteps()),
         ];
     }
 

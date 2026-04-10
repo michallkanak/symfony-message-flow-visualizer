@@ -259,7 +259,7 @@ class FilesystemStorage implements StorageInterface
         $indexRuns = $index['runs'] ?? [];
 
         // Sort by startedAt descending
-        uasort($indexRuns, function ($a, $b) {
+        uasort($indexRuns, static function ($a, $b) {
             return ($b['startedAt'] ?? '') <=> ($a['startedAt'] ?? '');
         });
 
@@ -295,11 +295,11 @@ class FilesystemStorage implements StorageInterface
         if (null !== $status) {
             $indexRuns = array_filter(
                 $indexRuns,
-                fn (array $runData) => ($runData['status'] ?? null) === $status,
+                static fn (array $runData) => ($runData['status'] ?? null) === $status,
             );
         }
 
-        uasort($indexRuns, function ($a, $b) {
+        uasort($indexRuns, static function ($a, $b) {
             return ($b['startedAt'] ?? '') <=> ($a['startedAt'] ?? '');
         });
 
@@ -480,7 +480,7 @@ class FilesystemStorage implements StorageInterface
 
         // Keep only last 1000 entries in index
         if (\count($index['runs']) > 1000) {
-            uasort($index['runs'], fn ($a, $b) => ($b['startedAt'] ?? '') <=> ($a['startedAt'] ?? ''));
+            uasort($index['runs'], static fn ($a, $b) => ($b['startedAt'] ?? '') <=> ($a['startedAt'] ?? ''));
             $index['runs'] = \array_slice($index['runs'], 0, 1000, true);
         }
 

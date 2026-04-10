@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Beta]
 
+## [0.1.1] - 2026-04-10
+
+### Fixed
+
+- [Storage] Fix mergeStepData field name mismatch losing queue wait timing by @corentin-larose in #1
+- [Storage] Implement avgDurationMs computation in DoctrineStorage by @corentin-larose in #4
+- [DependencyInjection] Fix Configuration default for enabled option by @corentin-larose in #2
+- [Trace] Replace deprecated mt_rand() with random_int() in SamplingDecider by @corentin-larose in #3
+- [Controller] Fix query parameter defaults in DashboardController by @corentin-larose in #5
+
 ## [0.1.0] - 2025-12-31
 
 ### Added

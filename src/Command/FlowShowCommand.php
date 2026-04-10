@@ -109,7 +109,7 @@ class FlowShowCommand extends Command
         $this->displayTree($io, $steps);
 
         // Display errors if any
-        $failedSteps = array_filter($steps, fn ($s) => 'failed' === $s->getStatus());
+        $failedSteps = array_filter($steps, static fn ($s) => 'failed' === $s->getStatus());
         if (\count($failedSteps) > 0) {
             $io->section('Errors');
             foreach ($failedSteps as $step) {

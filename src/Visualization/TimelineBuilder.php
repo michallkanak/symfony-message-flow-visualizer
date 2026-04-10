@@ -63,7 +63,7 @@ class TimelineBuilder
         }
 
         // Sort by start offset for proper layering
-        usort($spans, fn ($a, $b) => $a['startOffset'] <=> $b['startOffset']);
+        usort($spans, static fn ($a, $b) => $a['startOffset'] <=> $b['startOffset']);
 
         // Calculate depth for nested visualization
         $this->calculateDepths($spans);
