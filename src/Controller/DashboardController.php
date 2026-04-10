@@ -42,9 +42,9 @@ class DashboardController extends AbstractController
         $limit = $request->query->getInt('limit', 20);
         $page = max(1, $request->query->getInt('page', 1));
         $offset = ($page - 1) * $limit;
-        $status = $request->query->get('status', false);
+        $status = $request->query->get('status');
         $slowOnly = $request->query->getBoolean('slow_only', false);
-        $search = $request->query->get('search', null) ?? null;
+        $search = $request->query->get('search');
 
         $statusFilter = \is_string($status) && '' !== $status ? $status : null;
         $result = $this->storage->findRecentFlowRunsPaginated(
