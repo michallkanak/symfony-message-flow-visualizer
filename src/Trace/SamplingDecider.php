@@ -31,7 +31,7 @@ class SamplingDecider
             return true;
         }
 
-        return (random_int(0, PHP_INT_MAX) / PHP_INT_MAX) < $this->rate;
+        return (random_int(0, \PHP_INT_MAX) / \PHP_INT_MAX) < $this->rate;
     }
 
     /**

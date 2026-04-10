@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MichalKanak\MessageFlowVisualizerBundle\Tests\Fixtures;
 
+use LogicException;
 use Predis\ClientInterface;
 use Predis\Command\CommandInterface;
 
@@ -40,12 +41,12 @@ class FakeRedisClient implements ClientInterface
 
     public function getProfile()
     {
-        throw new \LogicException('Not implemented');
+        throw new LogicException('Not implemented');
     }
 
     public function getOptions()
     {
-        throw new \LogicException('Not implemented');
+        throw new LogicException('Not implemented');
     }
 
     public function connect()
@@ -58,26 +59,26 @@ class FakeRedisClient implements ClientInterface
 
     public function getConnection()
     {
-        throw new \LogicException('Not implemented');
+        throw new LogicException('Not implemented');
     }
 
     public function createCommand($method, $arguments = [])
     {
-        throw new \LogicException('Not implemented');
+        throw new LogicException('Not implemented');
     }
 
     public function executeCommand(CommandInterface $command)
     {
-        throw new \LogicException('Not implemented');
+        throw new LogicException('Not implemented');
     }
 
     public function __call($commandID, $arguments)
     {
-        throw new \LogicException("Unexpected call: $commandID");
+        throw new LogicException("Unexpected call: $commandID");
     }
 
     public function getCommandFactory()
     {
-        throw new \LogicException('Not implemented');
+        throw new LogicException('Not implemented');
     }
 }
