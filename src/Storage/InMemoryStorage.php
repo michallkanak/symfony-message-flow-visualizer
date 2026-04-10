@@ -84,7 +84,7 @@ class InMemoryStorage implements StorageInterface
 
         return array_filter(
             $this->flowSteps,
-            fn (FlowStep $step) => $step->getFlowRunId() === $flowRunId,
+            static fn (FlowStep $step) => $step->getFlowRunId() === $flowRunId,
         );
     }
 
@@ -93,10 +93,10 @@ class InMemoryStorage implements StorageInterface
         $runs = array_values($this->flowRuns);
 
         if (null !== $status) {
-            $runs = array_filter($runs, fn (FlowRun $run) => $run->getStatus() === $status);
+            $runs = array_filter($runs, static fn (FlowRun $run) => $run->getStatus() === $status);
         }
 
-        usort($runs, fn (FlowRun $a, FlowRun $b) => $b->getStartedAt() <=> $a->getStartedAt());
+        usort($runs, static fn (FlowRun $a, FlowRun $b) => $b->getStartedAt() <=> $a->getStartedAt());
 
         return \array_slice($runs, 0, $limit);
     }
@@ -109,11 +109,11 @@ class InMemoryStorage implements StorageInterface
         $runs = array_values($this->flowRuns);
 
         if (null !== $status) {
-            $runs = array_filter($runs, fn (FlowRun $run) => $run->getStatus() === $status);
+            $runs = array_filter($runs, static fn (FlowRun $run) => $run->getStatus() === $status);
             $runs = array_values($runs);
         }
 
-        usort($runs, fn (FlowRun $a, FlowRun $b) => $b->getStartedAt() <=> $a->getStartedAt());
+        usort($runs, static fn (FlowRun $a, FlowRun $b) => $b->getStartedAt() <=> $a->getStartedAt());
 
         $total = \count($runs);
         $items = \array_slice($runs, $offset, $limit);

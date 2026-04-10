@@ -14,5 +14,8 @@
 # Lock file (library - users should have their own)
 /composer.lock
 
+# Composer
+/composer.phar
+
 # VS Code workspace
 *.code-workspace

@@ -44,7 +44,7 @@ class RedisStorageMergeStepDataTest extends TestCase
         $storage->saveFlowRun($handledRun);
 
         // Read back the merged data
-        $storedData = json_decode($redis->get('mfv:run:run-1'), true, 512, \JSON_THROW_ON_ERROR);
+        $storedData = json_decode($redis->get('mfv:run:run-1') ?? '', true, 512, \JSON_THROW_ON_ERROR);
 
         self::assertCount(1, $storedData['steps']);
 
